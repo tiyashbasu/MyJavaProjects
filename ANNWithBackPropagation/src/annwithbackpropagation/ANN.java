@@ -1,32 +1,44 @@
 package annwithbackpropagation;
 
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.ArrayList;
 
 /**
  *
  * @author Tiyash Basu
  */
 public class ANN implements Serializable {
-    private final double[][] node;
-    private final double[][] bias;
-    private final double[][][] weight;
-    private final double ACTIVATION_PARAMETER = 0.75;
-    private final double ERROR_THRESHOLD = 0.01;
-    private final double MOMENTUM_FACTOR = 0.9;
-    private final double LEARNING_RATE = 0.2;
+    private double[][] node;
+    private double[][] bias;
+    private double[][][] weight;
+    private double activationParameter;
+    private double learningRate;
+    private double momentumFactor;
+    private double errorThreshold;
 
+    public ANN() {
+        
+    }
     /**This creates a multilayer ANN, which can be trained using back propagation algorithm.
      *
      * @param nodes An Int32 array having number of nodes in each layer, assuming data flows from the first layer to the last layer.
+     * @param activationParameter The activation parameter for the ANN's sigmoid function.
+     * @param learningRate The learning rate for back propagation.
+     * @param momentumFactor The momentum factor for back propagation.
+     * @param errorThreshold The error threshold for training.
      */
-    ANN(int[] nodes) {
+    public ANN(int[] nodes, double activationParameter, double learningRate, double momentumFactor, double errorThreshold) {
         int i, j, k;
+        this.activationParameter = activationParameter;
+        this.learningRate = learningRate;
+        this.momentumFactor = momentumFactor;
+        this.errorThreshold = errorThreshold;
         int noOfLayers = nodes.length;
         this.node = new double[noOfLayers][];
         bias = new double[noOfLayers - 1][];
@@ -36,12 +48,12 @@ public class ANN implements Serializable {
         for (i = noOfLayers - 1; i >= 1; i--) {
             bias[i - 1] = new double[nodes[i]];
             for (j = bias [i - 1].length - 1; j >= 0; j--)
-                bias[i - 1][j] = Math.random() / 1000000.0;
+                bias[i - 1][j] = Math.random() / 100000000000000.0;
             weight[i - 1] = new double[nodes[i]][];
             for (j = nodes[i] - 1; j >= 0; j--) {
                 weight[i - 1][j] = new double[nodes[i - 1]];
                 for (k = weight[i - 1][j].length - 1; k >= 0; k--)
-                    weight[i - 1][j][k] = Math.random() / 1000000.0;
+                    weight[i - 1][j][k] = Math.random() / 100000000000000.0;
             }
         }
     }
@@ -55,7 +67,7 @@ public class ANN implements Serializable {
         int i, j, k, l, j2;
         int numberOfNodes, lastWeightLayerNum;
         int outputLayerNum = node.length - 1;
-        double sum = 0, previousDeltaWeight;
+        double sum, previousDeltaWeight;
         double delta[][] = new double[node.length - 1][];
         double deltaWeight[][][] = new double[node.length - 1][][];
         for (i = 0; i < outputLayerNum; i++) {
@@ -65,13 +77,15 @@ public class ANN implements Serializable {
                 deltaWeight[i][j] = new double[node[i].length];
         }
         double[] error = new double[trainingInput.length];
-        for (i = 0; i < trainingInput.length; i++) {
-            FeedInput(trainingInput[i]);
-            error[i] = GetError(targetOutput[i]);
-        }
         int c = 0;
-
-        while (GetMax(error) > ERROR_THRESHOLD) { c++;
+        while (true) {
+            c++;
+            for (i = 0; i < trainingInput.length; i++) {
+                FeedInput(trainingInput[i]);
+                error[i] = GetError(targetOutput[i]);
+            }
+            if (GetMax(error) <= errorThreshold)
+                break;
             for (i = 0; i < trainingInput.length; i++) {
                 FeedInput(trainingInput[i]);
                 //Updating weights of the output layer.
@@ -79,11 +93,11 @@ public class ANN implements Serializable {
                 lastWeightLayerNum = outputLayerNum - 1;
                 for (j = node[outputLayerNum].length - 1; j >= 0; j--) {
                     delta[lastWeightLayerNum][j] = (node[outputLayerNum][j] * (1 - node[outputLayerNum][j]) * (node[outputLayerNum][j] - targetOutput[i][j]));
-                    bias[lastWeightLayerNum][j] -= (LEARNING_RATE * delta[lastWeightLayerNum][j]);
+                    bias[lastWeightLayerNum][j] -= (learningRate * delta[lastWeightLayerNum][j]);
                     for (k = numberOfNodes; k >= 0; k--) {
                         previousDeltaWeight = deltaWeight[lastWeightLayerNum][j][k];
-                        deltaWeight[lastWeightLayerNum][j][k] = (ACTIVATION_PARAMETER * LEARNING_RATE * delta[lastWeightLayerNum][j] * node[lastWeightLayerNum][k]);
-                        weight[lastWeightLayerNum][j][k] -= (deltaWeight[lastWeightLayerNum][j][k] + MOMENTUM_FACTOR * previousDeltaWeight);
+                        deltaWeight[lastWeightLayerNum][j][k] = (activationParameter * learningRate * delta[lastWeightLayerNum][j] * node[lastWeightLayerNum][k]);
+                        weight[lastWeightLayerNum][j][k] -= (deltaWeight[lastWeightLayerNum][j][k] + momentumFactor * previousDeltaWeight);
                     }
                 }
                 //updating weights of the hidden layer
@@ -94,18 +108,14 @@ public class ANN implements Serializable {
                         for (l = node[j + 1].length - 1; l >= 0; l--)
                             sum += delta[j][l] * weight[j][l][k];
                         delta[j2][k] = node[j][k] * (1 - node[j][k]) * sum;
-                        bias[j2][k] -= (LEARNING_RATE * delta[j2][k]);
+                        bias[j2][k] -= (learningRate * delta[j2][k]);
                         for (l = node[j2].length - 1; l >= 0; l--) {
                             previousDeltaWeight = deltaWeight[j2][k][l];
-                            deltaWeight[j2][k][l] = (ACTIVATION_PARAMETER * LEARNING_RATE * delta[j2][k] * node[j2][l]);
-                            weight[j2][k][l] -= (deltaWeight[j2][k][l] + MOMENTUM_FACTOR * previousDeltaWeight);
+                            deltaWeight[j2][k][l] = (activationParameter * learningRate * delta[j2][k] * node[j2][l]);
+                            weight[j2][k][l] -= (deltaWeight[j2][k][l] + momentumFactor * previousDeltaWeight);
                         }
                     }
                 }
-            }
-            for (i = 0; i < trainingInput.length; i++) {
-                FeedInput(trainingInput[i]);
-                error[i] = GetError(targetOutput[i]);
             }
         }
         int a = c;
@@ -139,27 +149,6 @@ public class ANN implements Serializable {
         return max;
     }
 
-    /**This method is used to save the ANN.
-     * 
-     * @param fileName The file name to which the ANN should be saved. It should contain the entire path of the file.
-     * @return True if the save is successful. Otherwise false.
-     */
-    public boolean Save(String fileName){
-        try {
-            FileOutputStream fOut = new FileOutputStream(fileName);
-            ObjectOutputStream oOut = new ObjectOutputStream(fOut);
-            oOut.writeObject(this);
-            oOut.close();
-            fOut.close();
-            return true;
-        } catch (FileNotFoundException ex) {
-            Logger.getLogger(ANN.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (IOException ex) {
-            Logger.getLogger(ANN.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        return false;
-    }
-
     /**This method is used to push inputs to the first layer of the ANN, which is then forward propagated towards the successive layers.
      * 
      * @param input A double array which contains the inputs to the ANN.
@@ -176,7 +165,7 @@ public class ANN implements Serializable {
                 sum = 0;
                 for (k = 0; k < node[i - 1].length; k++)
                     sum += node[i - 1][k] * weight[i - 1][j][k];
-                node[i][j] = 1 / (1 + Math.exp(-1 * (sum + bias[i - 1][j]) * ACTIVATION_PARAMETER));
+                node[i][j] = 1 / (1 + Math.exp(-1 * (sum + bias[i - 1][j]) * activationParameter));
             }
         }
     }
@@ -208,5 +197,47 @@ public class ANN implements Serializable {
      */
     public int OutputSize() {
         return node[node.length - 1].length;
+    }
+
+    /**This method is used to save the ANN.
+     * 
+     * @param fileName The file name to which the ANN should be saved. It should contain the entire path of the file.
+     * @throws FileNotFoundException If the file at the specified path is not found.
+     * @throws IOException If the file at the specified path is inaccessible.*
+     */
+    public void Save(String fileName) throws FileNotFoundException, IOException{
+        ArrayList saveList = new ArrayList();
+        saveList.add(node);
+        saveList.add(bias);
+        saveList.add(weight);
+        saveList.add(activationParameter);
+        saveList.add(learningRate);
+        saveList.add(momentumFactor);
+        saveList.add(errorThreshold);
+        FileOutputStream fOut = new FileOutputStream(fileName);
+        ObjectOutputStream oOut = new ObjectOutputStream(fOut);
+        oOut.writeObject(saveList);
+        oOut.close();
+        fOut.close();
+    }
+
+    /**This method is used to load an ANN from a saved file.
+     * 
+     * @param fileName The file name from which the ANN should be loaded from. It should contain the entire path of the file.
+     * @throws FileNotFoundException If the file at the specified path is not found.
+     * @throws IOException If the file at the specified path is inaccessible.
+     * @throws ClassNotFoundException May throw this exception when the ArrayList java class definition is corrupt in system.
+     */
+    public void Load(String fileName) throws FileNotFoundException, IOException, ClassNotFoundException {
+        FileInputStream fIn = new FileInputStream(fileName);
+        ObjectInputStream oIn = new ObjectInputStream(fIn);
+        ArrayList loadList = (ArrayList) oIn.readObject();
+        node = (double[][]) loadList.get(0);
+        bias = (double[][]) loadList.get(1);
+        weight = (double[][][]) loadList.get(2);
+        activationParameter = (double) loadList.get(3);
+        learningRate = (double) loadList.get(4);
+        momentumFactor = (double) loadList.get(5);
+        errorThreshold = (double) loadList.get(6);
     }
 }

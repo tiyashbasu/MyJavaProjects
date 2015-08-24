@@ -6,7 +6,6 @@ import java.io.*;
 import java.nio.file.*;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.*;
@@ -101,8 +100,12 @@ public class MainUI extends JFrame {
     private void SaveANN() {
         JFileChooser fileChooser = new JFileChooser();
         if (fileChooser.showSaveDialog(panelMain) == JFileChooser.APPROVE_OPTION) {
-            ann.Save(fileChooser.getSelectedFile().getPath());
-            labelStatus.setText("ANN Saved");
+            try {
+                ann.Save(fileChooser.getSelectedFile().getPath());
+                labelStatus.setText("ANN Saved");
+            } catch (IOException ex) {
+                Logger.getLogger(MainUI.class.getName()).log(Level.SEVERE, null, ex);
+            }
         }
     }
 
@@ -113,16 +116,12 @@ public class MainUI extends JFrame {
         JFileChooser fileChooser = new JFileChooser();
         if (fileChooser.showOpenDialog(panelTrain) == JFileChooser.APPROVE_OPTION) {
             try {
-                FileInputStream fIn = new FileInputStream(fileChooser.getSelectedFile().getPath());
-                ObjectInputStream oIn = new ObjectInputStream(fIn);
-                ann = (ANN) oIn.readObject();
+                if (ann == null)
+                    ann = new ANN();
+                ann.Load(fileChooser.getSelectedFile().getPath());
                 labelStatus.setText("ANN loaded.");
-            } catch (FileNotFoundException ex) {
-                Logger.getLogger(MainUI.class.getName()).log(Level.SEVERE, null, ex);
-                labelStatus.setText("File not found.");
             } catch (IOException | ClassNotFoundException ex) {
                 Logger.getLogger(MainUI.class.getName()).log(Level.SEVERE, null, ex);
-                labelStatus.setText("Incorrect file format.");
             }
         }
     }
@@ -236,17 +235,6 @@ public class MainUI extends JFrame {
         layoutMain.putConstraint(SpringLayout.SOUTH, panelCreate, -10, SpringLayout.NORTH, labelStatus);
         panelMain.add(panelCreate);
 
-        /*labelANNDesc1 = new JLabel("Enter number of layers:");
-        layoutCreatePanel.putConstraint(SpringLayout.WEST, labelANNDesc1, 10, SpringLayout.WEST, panelCreate);
-        layoutCreatePanel.putConstraint(SpringLayout.NORTH, labelANNDesc1, 10, SpringLayout.NORTH, panelCreate);
-        panelCreate.add(labelANNDesc1);
-
-        textFieldANNDesc1 = new JTextField();
-        layoutCreatePanel.putConstraint(SpringLayout.EAST, textFieldANNDesc1, -10, SpringLayout.EAST, panelCreate);
-        layoutCreatePanel.putConstraint(SpringLayout.WEST, textFieldANNDesc1, 10, SpringLayout.EAST, labelANNDescription);
-        layoutCreatePanel.putConstraint(SpringLayout.NORTH, textFieldANNDesc1, -2, SpringLayout.NORTH, labelANNDescription);
-        panelCreate.add(textFieldANNDesc1);*/
-
         labelANNDescription = new JLabel("Enter number of nodes in layers:");
         layoutCreatePanel.putConstraint(SpringLayout.WEST, labelANNDescription, 10, SpringLayout.WEST, panelCreate);
         layoutCreatePanel.putConstraint(SpringLayout.NORTH, labelANNDescription, 10, SpringLayout.NORTH, panelCreate);
@@ -280,7 +268,7 @@ public class MainUI extends JFrame {
                             labelStatus.setText("Incorrect number of nodes. Please check input.");
                             return;
                         }
-                    ann = new ANN(nodes);
+                    ann = new ANN(nodes, 0.75, 0.1, 0.0, 0.01);
                     labelStatus.setText("ANN created and loaded.");
                 }
                 catch (NumberFormatException ex) {
