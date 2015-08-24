@@ -18,27 +18,22 @@ public class ANN implements Serializable {
     private double[][] bias;
     private double[][][] weight;
     private double activationParameter;
-    private double learningRate;
-    private double momentumFactor;
-    private double errorThreshold;
 
+    /**This is the default constructor and if used, it is imperative to use a load command to initialize the created ANN from a save file.
+     * 
+     */
     public ANN() {
         
     }
+
     /**This creates a multilayer ANN, which can be trained using back propagation algorithm.
      *
      * @param nodes An Int32 array having number of nodes in each layer, assuming data flows from the first layer to the last layer.
      * @param activationParameter The activation parameter for the ANN's sigmoid function.
-     * @param learningRate The learning rate for back propagation.
-     * @param momentumFactor The momentum factor for back propagation.
-     * @param errorThreshold The error threshold for training.
      */
-    public ANN(int[] nodes, double activationParameter, double learningRate, double momentumFactor, double errorThreshold) {
+    public ANN(int[] nodes, double activationParameter) {
         int i, j, k;
         this.activationParameter = activationParameter;
-        this.learningRate = learningRate;
-        this.momentumFactor = momentumFactor;
-        this.errorThreshold = errorThreshold;
         int noOfLayers = nodes.length;
         this.node = new double[noOfLayers][];
         bias = new double[noOfLayers - 1][];
@@ -62,8 +57,11 @@ public class ANN implements Serializable {
      * 
      * @param trainingInput The training inputs.
      * @param targetOutput The corresponding expected outputs.
+     * @param learningRate The learning rate of the training.
+     * @param momentumFactor The momentum factor of the training.
+     * @param errorThreshold The maximum accepted error expected at the end of training.
      */
-    public void train(double[][] trainingInput, int[][] targetOutput) {
+    public void train(double[][] trainingInput, int[][] targetOutput, double learningRate, double momentumFactor, double errorThreshold) {
         int i, j, k, l, j2;
         int numberOfNodes, lastWeightLayerNum;
         int outputLayerNum = node.length - 1;
@@ -77,9 +75,7 @@ public class ANN implements Serializable {
                 deltaWeight[i][j] = new double[node[i].length];
         }
         double[] error = new double[trainingInput.length];
-        int c = 0;
         while (true) {
-            c++;
             for (i = 0; i < trainingInput.length; i++) {
                 FeedInput(trainingInput[i]);
                 error[i] = GetError(targetOutput[i]);
@@ -93,7 +89,7 @@ public class ANN implements Serializable {
                 lastWeightLayerNum = outputLayerNum - 1;
                 for (j = node[outputLayerNum].length - 1; j >= 0; j--) {
                     delta[lastWeightLayerNum][j] = (node[outputLayerNum][j] * (1 - node[outputLayerNum][j]) * (node[outputLayerNum][j] - targetOutput[i][j]));
-                    bias[lastWeightLayerNum][j] -= (learningRate * delta[lastWeightLayerNum][j]);
+                    bias[lastWeightLayerNum][j] += (activationParameter * learningRate * delta[lastWeightLayerNum][j]);
                     for (k = numberOfNodes; k >= 0; k--) {
                         previousDeltaWeight = deltaWeight[lastWeightLayerNum][j][k];
                         deltaWeight[lastWeightLayerNum][j][k] = (activationParameter * learningRate * delta[lastWeightLayerNum][j] * node[lastWeightLayerNum][k]);
@@ -108,7 +104,7 @@ public class ANN implements Serializable {
                         for (l = node[j + 1].length - 1; l >= 0; l--)
                             sum += delta[j][l] * weight[j][l][k];
                         delta[j2][k] = node[j][k] * (1 - node[j][k]) * sum;
-                        bias[j2][k] -= (learningRate * delta[j2][k]);
+                        bias[j2][k] += (activationParameter * learningRate * delta[j2][k]);
                         for (l = node[j2].length - 1; l >= 0; l--) {
                             previousDeltaWeight = deltaWeight[j2][k][l];
                             deltaWeight[j2][k][l] = (activationParameter * learningRate * delta[j2][k] * node[j2][l]);
@@ -118,7 +114,6 @@ public class ANN implements Serializable {
                 }
             }
         }
-        int a = c;
     }
 
     /** Calculates the error between the output and the target.
@@ -166,6 +161,7 @@ public class ANN implements Serializable {
                 for (k = 0; k < node[i - 1].length; k++)
                     sum += node[i - 1][k] * weight[i - 1][j][k];
                 node[i][j] = 1 / (1 + Math.exp(-1 * (sum + bias[i - 1][j]) * activationParameter));
+                //node[i][j] = 1 / (1 + Math.exp(-1 * sum * activationParameter));
             }
         }
     }
@@ -211,9 +207,6 @@ public class ANN implements Serializable {
         saveList.add(bias);
         saveList.add(weight);
         saveList.add(activationParameter);
-        saveList.add(learningRate);
-        saveList.add(momentumFactor);
-        saveList.add(errorThreshold);
         FileOutputStream fOut = new FileOutputStream(fileName);
         ObjectOutputStream oOut = new ObjectOutputStream(fOut);
         oOut.writeObject(saveList);
@@ -236,8 +229,5 @@ public class ANN implements Serializable {
         bias = (double[][]) loadList.get(1);
         weight = (double[][][]) loadList.get(2);
         activationParameter = (double) loadList.get(3);
-        learningRate = (double) loadList.get(4);
-        momentumFactor = (double) loadList.get(5);
-        errorThreshold = (double) loadList.get(6);
     }
 }

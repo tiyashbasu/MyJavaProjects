@@ -268,7 +268,7 @@ public class MainUI extends JFrame {
                             labelStatus.setText("Incorrect number of nodes. Please check input.");
                             return;
                         }
-                    ann = new ANN(nodes, 0.75, 0.1, 0.0, 0.01);
+                    ann = new ANN(nodes, 0.75);
                     labelStatus.setText("ANN created and loaded.");
                 }
                 catch (NumberFormatException ex) {
@@ -406,7 +406,7 @@ public class MainUI extends JFrame {
                             output[i][j] = (int) temp[ipLen + j];
                         
                     }
-                    ann.train(input, output);
+                    ann.train(input, output, 0.1, 0.8, 0.001);
                     labelStatus.setText("Training successful.");
                 } catch (IOException ex) {
                     Logger.getLogger(MainUI.class.getName()).log(Level.SEVERE, null, ex);
