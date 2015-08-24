@@ -4,7 +4,9 @@ import java.awt.Dimension;
 import java.awt.event.*;
 import java.io.*;
 import java.nio.file.*;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.*;
@@ -25,8 +27,8 @@ public class MainUI extends JFrame {
     //Creation Panel Controls
     JPanel panelCreate;
     SpringLayout layoutCreatePanel;
-    JLabel labelANNDesc1, labelANNDesc2;
-    JTextField textFieldANNDesc1, textFieldANNDesc2;
+    JLabel labelANNDesc1, labelANNDescription;
+    JTextField textFieldANNDesc1, textFieldANNDescription;
     JButton buttonCreateANN, buttonSaveANNFromCreate;
     //Training Panel Controls
     SpringLayout layoutTrainPanel;
@@ -54,16 +56,20 @@ public class MainUI extends JFrame {
      * @param size The size of the array.
      * @return The integer array having numbers given in the "text" parameter.
      */
-    private int[] StringToIntArray(String text, int size) {
-        int[] values = new int[size];
-        int pos1 = 0, pos2, i = 0;
+    private int[] StringToIntArray(String text) {
+        ArrayList values = new ArrayList();
+        int pos1 = 0, pos2;
         text = text.trim() + " ";
-        do {
-            pos2 = text.indexOf(" ", pos1);
-            values[i++] = Integer.parseInt(text.substring(pos1, pos2));
+        pos2 = text.indexOf(" ", pos1);
+        while (pos2 != -1) {
+            values.add(Integer.parseInt(text.substring(pos1, pos2)));
             pos1 = pos2 + 1;
-        } while (i < size && pos1 != 0);
-        return values;
+            pos2 = text.indexOf(" ", pos1);
+        }
+        int[] arr = new int[values.size()];
+        for (int i = arr.length - 1; i >= 0; i--)
+            arr[i] = (int) values.get(i);
+        return arr;
     }
 
     /** Converts a space separated list of numbers to a double array and returns the array.
@@ -230,31 +236,31 @@ public class MainUI extends JFrame {
         layoutMain.putConstraint(SpringLayout.SOUTH, panelCreate, -10, SpringLayout.NORTH, labelStatus);
         panelMain.add(panelCreate);
 
-        labelANNDesc1 = new JLabel("Enter number of layers:");
+        /*labelANNDesc1 = new JLabel("Enter number of layers:");
         layoutCreatePanel.putConstraint(SpringLayout.WEST, labelANNDesc1, 10, SpringLayout.WEST, panelCreate);
         layoutCreatePanel.putConstraint(SpringLayout.NORTH, labelANNDesc1, 10, SpringLayout.NORTH, panelCreate);
         panelCreate.add(labelANNDesc1);
 
-        labelANNDesc2 = new JLabel("Enter number of nodes in layers:");
-        layoutCreatePanel.putConstraint(SpringLayout.WEST, labelANNDesc2, 10, SpringLayout.WEST, panelCreate);
-        layoutCreatePanel.putConstraint(SpringLayout.NORTH, labelANNDesc2, 20, SpringLayout.SOUTH, labelANNDesc1);
-        panelCreate.add(labelANNDesc2);
-
         textFieldANNDesc1 = new JTextField();
         layoutCreatePanel.putConstraint(SpringLayout.EAST, textFieldANNDesc1, -10, SpringLayout.EAST, panelCreate);
-        layoutCreatePanel.putConstraint(SpringLayout.WEST, textFieldANNDesc1, 10, SpringLayout.EAST, labelANNDesc1);
-        layoutCreatePanel.putConstraint(SpringLayout.NORTH, textFieldANNDesc1, -2, SpringLayout.NORTH, labelANNDesc1);
-        panelCreate.add(textFieldANNDesc1);
+        layoutCreatePanel.putConstraint(SpringLayout.WEST, textFieldANNDesc1, 10, SpringLayout.EAST, labelANNDescription);
+        layoutCreatePanel.putConstraint(SpringLayout.NORTH, textFieldANNDesc1, -2, SpringLayout.NORTH, labelANNDescription);
+        panelCreate.add(textFieldANNDesc1);*/
 
-        textFieldANNDesc2 = new JTextField();
-        layoutCreatePanel.putConstraint(SpringLayout.EAST, textFieldANNDesc2, -10, SpringLayout.EAST, panelCreate);
-        layoutCreatePanel.putConstraint(SpringLayout.WEST, textFieldANNDesc2, 10, SpringLayout.EAST, labelANNDesc2);
-        layoutCreatePanel.putConstraint(SpringLayout.NORTH, textFieldANNDesc2, -2, SpringLayout.NORTH, labelANNDesc2);
-        panelCreate.add(textFieldANNDesc2);
+        labelANNDescription = new JLabel("Enter number of nodes in layers:");
+        layoutCreatePanel.putConstraint(SpringLayout.WEST, labelANNDescription, 10, SpringLayout.WEST, panelCreate);
+        layoutCreatePanel.putConstraint(SpringLayout.NORTH, labelANNDescription, 10, SpringLayout.NORTH, panelCreate);
+        panelCreate.add(labelANNDescription);
+
+        textFieldANNDescription = new JTextField();
+        layoutCreatePanel.putConstraint(SpringLayout.EAST, textFieldANNDescription, -10, SpringLayout.EAST, panelCreate);
+        layoutCreatePanel.putConstraint(SpringLayout.WEST, textFieldANNDescription, 10, SpringLayout.EAST, labelANNDescription);
+        layoutCreatePanel.putConstraint(SpringLayout.NORTH, textFieldANNDescription, -2, SpringLayout.NORTH, labelANNDescription);
+        panelCreate.add(textFieldANNDescription);
 
         buttonCreateANN = new JButton("Create ANN");
         layoutCreatePanel.putConstraint(SpringLayout.WEST, buttonCreateANN, 10, SpringLayout.WEST, panelCreate);
-        layoutCreatePanel.putConstraint(SpringLayout.NORTH, buttonCreateANN, 20, SpringLayout.SOUTH, labelANNDesc2);
+        layoutCreatePanel.putConstraint(SpringLayout.NORTH, buttonCreateANN, 20, SpringLayout.SOUTH, labelANNDescription);
         panelCreate.add(buttonCreateANN);
 
         buttonSaveANNFromCreate = new JButton("Save ANN");
@@ -268,9 +274,8 @@ public class MainUI extends JFrame {
             @Override
             public void mouseClicked(MouseEvent e) {
                 try {
-                    int len = Integer.parseInt(textFieldANNDesc1.getText());
-                    int[] nodes = StringToIntArray(textFieldANNDesc2.getText(), len);
-                    for (int i = 0; i <= len - 1; i++)
+                    int[] nodes = StringToIntArray(textFieldANNDescription.getText());
+                    for (int i = nodes.length - 1; i >= 0; i--)
                         if (nodes[i] == 0) {
                             labelStatus.setText("Incorrect number of nodes. Please check input.");
                             return;
@@ -375,6 +380,49 @@ public class MainUI extends JFrame {
             @Override
             public void mouseClicked(MouseEvent e) {
                 textFieldSelectTrainingFile.setText(SelectFile());
+            }
+            @Override
+            public void mousePressed(MouseEvent e) {}
+            @Override
+            public void mouseReleased(MouseEvent e) {}
+            @Override
+            public void mouseEntered(MouseEvent e) {}
+            @Override
+            public void mouseExited(MouseEvent e) {}
+        });
+        buttonTrainANN.addMouseListener(new MouseListener() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                try {
+                    int i, j;
+                    int len = ann.InputSize() + ann.OutputSize();
+                    int ipLen = ann.InputSize();
+                    int opLen = len - ipLen;
+                    double[][] input;
+                    double[] temp;
+                    int[][] output;
+                    labelStatus.setText("Training now...");
+                    ArrayList list = new ArrayList();
+                    for (String line : Files.readAllLines(Paths.get(textFieldSelectTrainingFile.getText()))) {
+                        list.add(StringToDoubleArray(line, len));
+                    }
+                    input = new double[list.size()][];
+                    output = new int[list.size()][];
+                    for (i = 0; i < list.size(); i++) {
+                        input[i] = new double[ipLen];
+                        output[i] = new int[opLen];
+                        temp = (double[]) list.get(i);
+                        for (j = 0; j < ipLen; j++)
+                            input[i][j] = temp[j];
+                        for (j = 0; j < opLen; j++)
+                            output[i][j] = (int) temp[ipLen + j];
+                        
+                    }
+                    ann.train(input, output);
+                    labelStatus.setText("Training successful.");
+                } catch (IOException ex) {
+                    Logger.getLogger(MainUI.class.getName()).log(Level.SEVERE, null, ex);
+                }
             }
             @Override
             public void mousePressed(MouseEvent e) {}
