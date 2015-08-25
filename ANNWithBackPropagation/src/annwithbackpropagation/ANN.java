@@ -15,7 +15,6 @@ import java.util.ArrayList;
  */
 public class ANN implements Serializable {
     private double[][] node;
-    private double[][] bias;
     private double[][][] weight;
     private double activationParameter;
 
@@ -36,14 +35,10 @@ public class ANN implements Serializable {
         this.activationParameter = activationParameter;
         int noOfLayers = nodes.length;
         this.node = new double[noOfLayers][];
-        bias = new double[noOfLayers - 1][];
         weight = new double[noOfLayers - 1][][];
         for (i = noOfLayers - 1; i >= 0; i--)
             this.node[i] = new double[nodes[i]];
         for (i = noOfLayers - 1; i >= 1; i--) {
-            bias[i - 1] = new double[nodes[i]];
-            for (j = bias [i - 1].length - 1; j >= 0; j--)
-                bias[i - 1][j] = Math.random() / 100000000000000.0;
             weight[i - 1] = new double[nodes[i]][];
             for (j = nodes[i] - 1; j >= 0; j--) {
                 weight[i - 1][j] = new double[nodes[i - 1]];
@@ -65,7 +60,7 @@ public class ANN implements Serializable {
         int i, j, k, l, j2;
         int numberOfNodes, lastWeightLayerNum;
         int outputLayerNum = node.length - 1;
-        double sum, previousDeltaWeight;
+        double sum, previousDeltaWeight, multiplicationFactor;
         double delta[][] = new double[node.length - 1][];
         double deltaWeight[][][] = new double[node.length - 1][][];
         for (i = 0; i < outputLayerNum; i++) {
@@ -89,10 +84,10 @@ public class ANN implements Serializable {
                 lastWeightLayerNum = outputLayerNum - 1;
                 for (j = node[outputLayerNum].length - 1; j >= 0; j--) {
                     delta[lastWeightLayerNum][j] = (node[outputLayerNum][j] * (1 - node[outputLayerNum][j]) * (node[outputLayerNum][j] - targetOutput[i][j]));
-                    bias[lastWeightLayerNum][j] += (activationParameter * learningRate * delta[lastWeightLayerNum][j]);
+                    multiplicationFactor = (activationParameter * learningRate * delta[lastWeightLayerNum][j]);
                     for (k = numberOfNodes; k >= 0; k--) {
                         previousDeltaWeight = deltaWeight[lastWeightLayerNum][j][k];
-                        deltaWeight[lastWeightLayerNum][j][k] = (activationParameter * learningRate * delta[lastWeightLayerNum][j] * node[lastWeightLayerNum][k]);
+                        deltaWeight[lastWeightLayerNum][j][k] = (multiplicationFactor * node[lastWeightLayerNum][k]);
                         weight[lastWeightLayerNum][j][k] -= (deltaWeight[lastWeightLayerNum][j][k] + momentumFactor * previousDeltaWeight);
                     }
                 }
@@ -104,10 +99,10 @@ public class ANN implements Serializable {
                         for (l = node[j + 1].length - 1; l >= 0; l--)
                             sum += delta[j][l] * weight[j][l][k];
                         delta[j2][k] = node[j][k] * (1 - node[j][k]) * sum;
-                        bias[j2][k] += (activationParameter * learningRate * delta[j2][k]);
+                        multiplicationFactor = (activationParameter * learningRate * delta[j2][k]);
                         for (l = node[j2].length - 1; l >= 0; l--) {
                             previousDeltaWeight = deltaWeight[j2][k][l];
-                            deltaWeight[j2][k][l] = (activationParameter * learningRate * delta[j2][k] * node[j2][l]);
+                            deltaWeight[j2][k][l] = (multiplicationFactor * node[j2][l]);
                             weight[j2][k][l] -= (deltaWeight[j2][k][l] + momentumFactor * previousDeltaWeight);
                         }
                     }
@@ -160,8 +155,7 @@ public class ANN implements Serializable {
                 sum = 0;
                 for (k = 0; k < node[i - 1].length; k++)
                     sum += node[i - 1][k] * weight[i - 1][j][k];
-                node[i][j] = 1 / (1 + Math.exp(-1 * (sum + bias[i - 1][j]) * activationParameter));
-                //node[i][j] = 1 / (1 + Math.exp(-1 * sum * activationParameter));
+                node[i][j] = 1 / (1 + Math.exp(-sum * activationParameter));
             }
         }
     }
@@ -204,7 +198,6 @@ public class ANN implements Serializable {
     public void Save(String fileName) throws FileNotFoundException, IOException{
         ArrayList saveList = new ArrayList();
         saveList.add(node);
-        saveList.add(bias);
         saveList.add(weight);
         saveList.add(activationParameter);
         FileOutputStream fOut = new FileOutputStream(fileName);
@@ -226,8 +219,7 @@ public class ANN implements Serializable {
         ObjectInputStream oIn = new ObjectInputStream(fIn);
         ArrayList loadList = (ArrayList) oIn.readObject();
         node = (double[][]) loadList.get(0);
-        bias = (double[][]) loadList.get(1);
-        weight = (double[][][]) loadList.get(2);
-        activationParameter = (double) loadList.get(3);
+        weight = (double[][][]) loadList.get(1);
+        activationParameter = (double) loadList.get(2);
     }
 }

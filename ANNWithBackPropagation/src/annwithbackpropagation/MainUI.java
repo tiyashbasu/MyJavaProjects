@@ -1,13 +1,17 @@
 package annwithbackpropagation;
 
 import java.awt.Dimension;
-import java.awt.event.*;
-import java.io.*;
-import java.nio.file.*;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.swing.*;
 
 /**
@@ -16,37 +20,521 @@ import javax.swing.*;
  */
 public class MainUI extends JFrame {
     private ANN ann;
-
     //<editor-fold defaultstate="collapsed" desc="UI controls declarations">
-    //Panel Switching Controls
-    JPanel panelMain;
-    SpringLayout layoutMain;
-    JButton buttonCreateANNPanel, buttonTrainANNPanel, buttonOperateANNPanel;
-    JLabel labelStatus;
-    //Creation Panel Controls
-    JPanel panelCreate;
-    SpringLayout layoutCreatePanel;
-    JLabel labelANNDesc1, labelANNDescription;
-    JTextField textFieldANNDesc1, textFieldANNDescription;
-    JButton buttonCreateANN, buttonSaveANNFromCreate;
-    //Training Panel Controls
-    SpringLayout layoutTrainPanel;
-    JPanel panelTrain;
-    JLabel labelSelectTrainingFile;
-    JTextField textFieldSelectTrainingFile;
-    JButton buttonLoadANNTrain, buttonSelectTrainingFile, buttonTrainANN, buttonSaveANNFromTrain;
-    //Operation Panel Controls
-    SpringLayout layoutOperationPanel;
-    JPanel panelOperation;
-    JLabel labelInputFile,labelOutputFile;
-    JTextField textFieldInputFile, textFieldOutputFile;
-    JButton buttonLoadANNOperation, buttonSelectInputFile, buttonSelectOutputFile, buttonGenerateOutput;
+    private JMenuBar menuBar;
+    private JMenu menu;
+    private JMenuItem menuItem;
+    //Default panel controls
+    private JPanel defaultPanel;
+    private SpringLayout defaultLayout;
+    private JLabel labelStatus, labelCurrentlyActiveANN;
+    //ANN creation panel controls
+    private JPanel creationPanel;
+    private SpringLayout creationPanelLayout;
+    private JLabel labelCPANNDimensions, labelCPActivationParameter;
+    private JTextField textFieldCPANNDimensions, textFieldCPActivationParameter;
+    private JButton buttonCPCreate;
+    //ANN operation panel controls
+    private JPanel operationPanel;
+    private SpringLayout operationPanelLayout;
+    private JLabel labelOPInputFile, labelOPOutputFile;
+    private JTextField textFieldOPInputFile, textFieldOPOutputFile;
+    private JButton buttonOPSelectInputFile, buttonOPSelectOutputFile, buttonOPGenerateOutput;
+    //ANN training panel controls
+    private JPanel trainingPanel;
+    private SpringLayout trainingPanelLayout;
+    private JLabel labelTPTrainingFile, labelTPLearningRate, labelTPMomentumFactor, labelTPErrorThreshold;
+    private JTextField textFieldTPTrainingFile, textFieldTPLearningRate, textFieldTPMomentumFactor, textFieldTPErrorThreshold;
+    private JButton buttonTPSelectTrainingFile, buttonTPTrain;
     //</editor-fold>
-
-    MainUI() {
+    
+    public MainUI() {
         this.frameInit();
-        this.getContentPane().setPreferredSize(new Dimension(400, 210));
-        InitUI();
+        this.getContentPane().setPreferredSize(new Dimension(400, 160));
+        this.setTitle("ANN Primer");
+        initDefaultPanel();
+        initMenuBar();
+        initDefaultPanel();
+        initCreationPanel();
+        initOperationPanel();
+        initTrainingPanel();
+        this.pack();
+        creationPanel.setVisible(false);
+        trainingPanel.setVisible(false);
+        operationPanel.setVisible(true);
+    }
+
+    private void initMenuBar() {
+        menuBar = new JMenuBar();
+        menu = new JMenu("File");
+        menuItem = new JMenuItem("New");
+        menuItem.addMouseListener(new MouseListener() {
+            @Override
+            public void mouseClicked(MouseEvent e) {}
+            @Override
+            public void mousePressed(MouseEvent e) {}
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                trainingPanel.setVisible(false);
+                operationPanel.setVisible(false);
+                creationPanel.setVisible(true);
+                labelStatus.setText("");
+            }
+            @Override
+            public void mouseEntered(MouseEvent e) {}
+            @Override
+            public void mouseExited(MouseEvent e) {}
+        });
+        menu.add(menuItem);
+        menuItem = new JMenuItem("Save");
+        menuItem.addMouseListener(new MouseListener() {
+            @Override
+            public void mouseClicked(MouseEvent e) {}
+            @Override
+            public void mousePressed(MouseEvent e) {}
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                if (ann == null) {
+                    labelStatus.setText("No ANN currently active.");
+                    return;
+                }
+                JFileChooser fileChooser = new JFileChooser();
+                if (fileChooser.showSaveDialog(menuBar) == JFileChooser.APPROVE_OPTION) {
+                    try {
+                        ann.Save(fileChooser.getSelectedFile().getPath());
+                        labelStatus.setText("ANN Saved.");
+                        labelCurrentlyActiveANN.setText("Currently active ANN: " + fileChooser.getSelectedFile().getName());
+                    } catch (IOException ex) {
+                        labelStatus.setText("Could not save ANN. Please try again.");
+                    }
+                }
+            }
+            @Override
+            public void mouseEntered(MouseEvent e) {}
+            @Override
+            public void mouseExited(MouseEvent e) {}
+        });
+        menu.add(menuItem);
+        menuItem = new JMenuItem("Load");
+        menuItem.addMouseListener(new MouseListener() {
+            @Override
+            public void mouseClicked(MouseEvent e) {}
+            @Override
+            public void mousePressed(MouseEvent e) {}
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                JFileChooser fileChooser = new JFileChooser();
+                if (fileChooser.showOpenDialog(menuBar) == JFileChooser.APPROVE_OPTION) {
+                    try {
+                        if (ann == null)
+                            ann = new ANN();
+                        ann.Load(fileChooser.getSelectedFile().getPath());
+                        labelStatus.setText("ANN loaded.");
+                        labelCurrentlyActiveANN.setText("Currently active ANN: " + fileChooser.getSelectedFile().getName());
+                    } catch (IOException | ClassNotFoundException ex) {
+                        labelStatus.setText("Could not load ANN. Please try again.");
+                    }
+                }
+            }
+            @Override
+            public void mouseEntered(MouseEvent e) {}
+            @Override
+            public void mouseExited(MouseEvent e) {}
+        });
+        menu.add(menuItem);
+        menuBar.add(menu);
+        menu = new JMenu("Controls");
+        menuItem = new JMenuItem("Train ANN");
+        menuItem.addMouseListener(new MouseListener() {
+            @Override
+            public void mouseClicked(MouseEvent e) {}
+            @Override
+            public void mousePressed(MouseEvent e) {}
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                creationPanel.setVisible(false);
+                operationPanel.setVisible(false);
+                trainingPanel.setVisible(true);
+                labelStatus.setText("");
+            }
+            @Override
+            public void mouseEntered(MouseEvent e) {}
+            @Override
+            public void mouseExited(MouseEvent e) {}
+        });
+        menu.add(menuItem);
+        menuItem = new JMenuItem("Operate ANN");
+        menuItem.addMouseListener(new MouseListener() {
+            @Override
+            public void mouseClicked(MouseEvent e) {}
+            @Override
+            public void mousePressed(MouseEvent e) {}
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                creationPanel.setVisible(false);
+                trainingPanel.setVisible(false);
+                operationPanel.setVisible(true);
+                labelStatus.setText("");
+            }
+            @Override
+            public void mouseEntered(MouseEvent e) {}
+            @Override
+            public void mouseExited(MouseEvent e) {}
+        });
+        menu.add(menuItem);
+        menuBar.add(menu);
+        menu = new JMenu("About");
+        menuItem = new JMenuItem("About");
+        menu.add(menuItem);
+        menuItem = new JMenuItem("Help");
+        menu.add(menuItem);
+        menuBar.add(menu);
+        this.setJMenuBar(menuBar);
+    }
+
+    private void initDefaultPanel() {
+        defaultPanel = new JPanel();
+        defaultLayout = new SpringLayout();
+        defaultPanel.setLayout(defaultLayout);
+
+        labelCurrentlyActiveANN = new JLabel("Currently Active ANN: None");
+        defaultLayout.putConstraint(SpringLayout.WEST, labelCurrentlyActiveANN, 10, SpringLayout.WEST, defaultPanel);
+        defaultLayout.putConstraint(SpringLayout.SOUTH, labelCurrentlyActiveANN, -10, SpringLayout.SOUTH, defaultPanel);
+        defaultPanel.add(labelCurrentlyActiveANN);
+
+        labelStatus = new JLabel("");
+        defaultLayout.putConstraint(SpringLayout.WEST, labelStatus, 10, SpringLayout.WEST, defaultPanel);
+        defaultLayout.putConstraint(SpringLayout.SOUTH, labelStatus, -15, SpringLayout.SOUTH, labelCurrentlyActiveANN);
+        defaultPanel.add(labelStatus);
+
+        this.add(defaultPanel);
+    }
+
+    private void initCreationPanel() {
+        creationPanel = new JPanel();
+        defaultLayout.putConstraint(SpringLayout.WEST, creationPanel, 0, SpringLayout.WEST, defaultPanel);
+        defaultLayout.putConstraint(SpringLayout.EAST, creationPanel, 0, SpringLayout.EAST, defaultPanel);
+        defaultLayout.putConstraint(SpringLayout.NORTH, creationPanel, 0, SpringLayout.NORTH, defaultPanel);
+        defaultLayout.putConstraint(SpringLayout.SOUTH, creationPanel, 30, SpringLayout.SOUTH, defaultPanel);
+        creationPanelLayout = new SpringLayout();
+        creationPanel.setLayout(creationPanelLayout);
+
+        labelCPANNDimensions = new JLabel("Enter ANN Dimensions:");
+        creationPanelLayout.putConstraint(SpringLayout.WEST, labelCPANNDimensions, 10, SpringLayout.WEST, creationPanel);
+        creationPanelLayout.putConstraint(SpringLayout.NORTH, labelCPANNDimensions, 20, SpringLayout.NORTH, creationPanel);
+        creationPanel.add(labelCPANNDimensions);
+
+        textFieldCPANNDimensions = new JTextField();
+        creationPanelLayout.putConstraint(SpringLayout.WEST, textFieldCPANNDimensions, 30, SpringLayout.EAST, labelCPANNDimensions);
+        creationPanelLayout.putConstraint(SpringLayout.EAST, textFieldCPANNDimensions, -10, SpringLayout.EAST, creationPanel);
+        creationPanelLayout.putConstraint(SpringLayout.VERTICAL_CENTER, textFieldCPANNDimensions, 0, SpringLayout.VERTICAL_CENTER, labelCPANNDimensions);
+        creationPanel.add(textFieldCPANNDimensions);
+
+        labelCPActivationParameter = new JLabel("Enter Activation Parameter:");
+        creationPanelLayout.putConstraint(SpringLayout.WEST, labelCPActivationParameter, 10, SpringLayout.WEST, creationPanel);
+        creationPanelLayout.putConstraint(SpringLayout.NORTH, labelCPActivationParameter, 10, SpringLayout.SOUTH, labelCPANNDimensions);
+        creationPanel.add(labelCPActivationParameter);
+
+        textFieldCPActivationParameter = new JTextField();
+        creationPanelLayout.putConstraint(SpringLayout.WEST, textFieldCPActivationParameter, 0, SpringLayout.WEST, textFieldCPANNDimensions);
+        creationPanelLayout.putConstraint(SpringLayout.EAST, textFieldCPActivationParameter, 0, SpringLayout.EAST, textFieldCPANNDimensions);
+        creationPanelLayout.putConstraint(SpringLayout.VERTICAL_CENTER, textFieldCPActivationParameter, 0, SpringLayout.VERTICAL_CENTER, labelCPActivationParameter);
+        creationPanel.add(textFieldCPActivationParameter);
+
+        buttonCPCreate = new JButton("Create ANN");
+        creationPanelLayout.putConstraint(SpringLayout.HORIZONTAL_CENTER, buttonCPCreate, 0, SpringLayout.HORIZONTAL_CENTER, creationPanel);
+        creationPanelLayout.putConstraint(SpringLayout.NORTH, buttonCPCreate, 15, SpringLayout.SOUTH, labelCPActivationParameter);
+        creationPanel.add(buttonCPCreate);
+        buttonCPCreate.addMouseListener(new MouseListener() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                try {
+                    int[] nodes = StringToIntArray(textFieldCPANNDimensions.getText());
+                    for (int i = nodes.length - 1; i >= 0; i--)
+                        if (nodes[i] == 0) {
+                            labelStatus.setText("Incorrect number of nodes. Please check input.");
+                            return;
+                        }
+                    ann = new ANN(nodes, Double.parseDouble(textFieldCPActivationParameter.getText()));
+                    labelStatus.setText("ANN created.");
+                    labelCurrentlyActiveANN.setText("Currently Active ANN: Current unsaved");
+                }
+                catch (NumberFormatException ex) {
+                    labelStatus.setText("Illegal number format found. Please check input.");
+                }
+            }
+            @Override
+            public void mousePressed(MouseEvent e) {}
+            @Override
+            public void mouseReleased(MouseEvent e) {}
+            @Override
+            public void mouseEntered(MouseEvent e) {}
+            @Override
+            public void mouseExited(MouseEvent e) {}
+        });
+
+        defaultPanel.add(creationPanel);
+    }
+
+    private void initOperationPanel() {
+        operationPanel = new JPanel();
+        defaultLayout.putConstraint(SpringLayout.WEST, operationPanel, 0, SpringLayout.WEST, defaultPanel);
+        defaultLayout.putConstraint(SpringLayout.EAST, operationPanel, 0, SpringLayout.EAST, defaultPanel);
+        defaultLayout.putConstraint(SpringLayout.NORTH, operationPanel, 0, SpringLayout.NORTH, defaultPanel);
+        defaultLayout.putConstraint(SpringLayout.SOUTH, operationPanel, 30, SpringLayout.SOUTH, defaultPanel);
+        operationPanelLayout = new SpringLayout();
+        operationPanel.setLayout(operationPanelLayout);
+
+        labelOPInputFile = new JLabel("Enter Input File:");
+        operationPanelLayout.putConstraint(SpringLayout.WEST, labelOPInputFile, 10, SpringLayout.WEST, operationPanel);
+        operationPanelLayout.putConstraint(SpringLayout.NORTH, labelOPInputFile, 20, SpringLayout.NORTH, operationPanel);
+        operationPanel.add(labelOPInputFile);
+        
+        buttonOPSelectInputFile = new JButton("Select");
+        operationPanelLayout.putConstraint(SpringLayout.EAST, buttonOPSelectInputFile, -10, SpringLayout.EAST, operationPanel);
+        operationPanelLayout.putConstraint(SpringLayout.VERTICAL_CENTER, buttonOPSelectInputFile, 0, SpringLayout.VERTICAL_CENTER, labelOPInputFile);
+        operationPanel.add(buttonOPSelectInputFile);
+        buttonOPSelectInputFile.addMouseListener(new MouseListener() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                textFieldOPInputFile.setText(SelectFile());
+            }
+            @Override
+            public void mousePressed(MouseEvent e) {}
+            @Override
+            public void mouseReleased(MouseEvent e) {}
+            @Override
+            public void mouseEntered(MouseEvent e) {}
+            @Override
+            public void mouseExited(MouseEvent e) {}
+        });
+
+        textFieldOPInputFile = new JTextField();
+        operationPanelLayout.putConstraint(SpringLayout.WEST, textFieldOPInputFile, 15, SpringLayout.EAST, labelOPInputFile);
+        operationPanelLayout.putConstraint(SpringLayout.EAST, textFieldOPInputFile, -10, SpringLayout.WEST, buttonOPSelectInputFile);
+        operationPanelLayout.putConstraint(SpringLayout.VERTICAL_CENTER, textFieldOPInputFile, 0, SpringLayout.VERTICAL_CENTER, labelOPInputFile);
+        operationPanel.add(textFieldOPInputFile);
+
+        labelOPOutputFile = new JLabel("Enter Output File:");
+        operationPanelLayout.putConstraint(SpringLayout.WEST, labelOPOutputFile, 10, SpringLayout.WEST, operationPanel);
+        operationPanelLayout.putConstraint(SpringLayout.NORTH, labelOPOutputFile, 10, SpringLayout.SOUTH, labelOPInputFile);
+        operationPanel.add(labelOPOutputFile);
+        
+        buttonOPSelectOutputFile = new JButton("Select");
+        operationPanelLayout.putConstraint(SpringLayout.EAST, buttonOPSelectOutputFile, -10, SpringLayout.EAST, operationPanel);
+        operationPanelLayout.putConstraint(SpringLayout.VERTICAL_CENTER, buttonOPSelectOutputFile, 0, SpringLayout.VERTICAL_CENTER, labelOPOutputFile);
+        operationPanel.add(buttonOPSelectOutputFile);
+        buttonOPSelectOutputFile.addMouseListener(new MouseListener() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                textFieldOPOutputFile.setText(SelectFile());
+            }
+            @Override
+            public void mousePressed(MouseEvent e) {}
+            @Override
+            public void mouseReleased(MouseEvent e) {}
+            @Override
+            public void mouseEntered(MouseEvent e) {}
+            @Override
+            public void mouseExited(MouseEvent e) {}
+        });
+
+        textFieldOPOutputFile = new JTextField();
+        operationPanelLayout.putConstraint(SpringLayout.EAST, textFieldOPOutputFile, 0, SpringLayout.EAST, textFieldOPInputFile);
+        operationPanelLayout.putConstraint(SpringLayout.WEST, textFieldOPOutputFile, 0, SpringLayout.WEST, textFieldOPInputFile);
+        operationPanelLayout.putConstraint(SpringLayout.VERTICAL_CENTER, textFieldOPOutputFile, 0, SpringLayout.VERTICAL_CENTER, labelOPOutputFile);
+        operationPanel.add(textFieldOPOutputFile);
+
+        buttonOPGenerateOutput = new JButton("Generate Output");
+        operationPanelLayout.putConstraint(SpringLayout.HORIZONTAL_CENTER, buttonOPGenerateOutput, 0, SpringLayout.HORIZONTAL_CENTER, operationPanel);
+        operationPanelLayout.putConstraint(SpringLayout.NORTH, buttonOPGenerateOutput, 15, SpringLayout.SOUTH, labelOPOutputFile);
+        operationPanel.add(buttonOPGenerateOutput);
+        buttonOPGenerateOutput.addMouseListener(new MouseListener() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                try {
+                    if (ann == null) {
+                        labelStatus.setText("No ANN currently active.");
+                        return;
+                    }
+                    if (textFieldOPInputFile.getText().equals("")) {
+                        labelStatus.setText("No input file selected.");
+                        return;
+                    }
+                    if (textFieldOPOutputFile.getText().equals("")) {
+                        labelStatus.setText("No input file selected.");
+                        return;
+                    }
+                    int len = ann.InputSize();
+                    BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(new File(textFieldOPOutputFile.getText()))));
+                    for (String line : Files.readAllLines(Paths.get(textFieldOPInputFile.getText()))) {
+                        ann.FeedInput(StringToDoubleArray(line, len));
+                        bw.write(Arrays.toString(ann.GetOutput()));
+                        bw.newLine();
+                    }
+                    bw.close();
+                    labelStatus.setText("Output generated.");
+                } catch (IOException ex) {
+                    labelStatus.setText("Invalid input or output file.");
+                } catch (ArrayIndexOutOfBoundsException ex) {
+                    labelStatus.setText("Invalid input file.");
+                }
+            }
+            @Override
+            public void mousePressed(MouseEvent e) {}
+            @Override
+            public void mouseReleased(MouseEvent e) {}
+            @Override
+            public void mouseEntered(MouseEvent e) {}
+            @Override
+            public void mouseExited(MouseEvent e) {}
+        });
+        
+        defaultPanel.add(operationPanel);
+    }
+
+    private void initTrainingPanel() {
+        trainingPanel = new JPanel();
+        defaultLayout.putConstraint(SpringLayout.WEST, trainingPanel, 0, SpringLayout.WEST, defaultPanel);
+        defaultLayout.putConstraint(SpringLayout.EAST, trainingPanel, 0, SpringLayout.EAST, defaultPanel);
+        defaultLayout.putConstraint(SpringLayout.NORTH, trainingPanel, 0, SpringLayout.NORTH, defaultPanel);
+        defaultLayout.putConstraint(SpringLayout.SOUTH, trainingPanel, 30, SpringLayout.SOUTH, defaultPanel);
+        trainingPanelLayout = new SpringLayout();
+        trainingPanel.setLayout(trainingPanelLayout);
+
+        labelTPTrainingFile = new JLabel("Enter Training File:");
+        trainingPanelLayout.putConstraint(SpringLayout.WEST, labelTPTrainingFile, 10, SpringLayout.WEST, trainingPanel);
+        trainingPanelLayout.putConstraint(SpringLayout.NORTH, labelTPTrainingFile, 20, SpringLayout.NORTH, trainingPanel);
+        trainingPanel.add(labelTPTrainingFile);
+        
+        buttonTPSelectTrainingFile = new JButton("Select");
+        trainingPanelLayout.putConstraint(SpringLayout.EAST, buttonTPSelectTrainingFile, -10, SpringLayout.EAST, trainingPanel);
+        trainingPanelLayout.putConstraint(SpringLayout.VERTICAL_CENTER, buttonTPSelectTrainingFile, 0, SpringLayout.VERTICAL_CENTER, labelTPTrainingFile);
+        trainingPanel.add(buttonTPSelectTrainingFile);
+        buttonTPSelectTrainingFile.addMouseListener(new MouseListener() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                textFieldTPTrainingFile.setText(SelectFile());
+            }
+            @Override
+            public void mousePressed(MouseEvent e) {}
+            @Override
+            public void mouseReleased(MouseEvent e) {}
+            @Override
+            public void mouseEntered(MouseEvent e) {}
+            @Override
+            public void mouseExited(MouseEvent e) {}
+        });
+
+        textFieldTPTrainingFile = new JTextField();
+        trainingPanelLayout.putConstraint(SpringLayout.WEST, textFieldTPTrainingFile, 20, SpringLayout.EAST, labelTPTrainingFile);
+        trainingPanelLayout.putConstraint(SpringLayout.EAST, textFieldTPTrainingFile, -10, SpringLayout.WEST, buttonTPSelectTrainingFile);
+        trainingPanelLayout.putConstraint(SpringLayout.VERTICAL_CENTER, textFieldTPTrainingFile, 0, SpringLayout.VERTICAL_CENTER, labelTPTrainingFile);
+        trainingPanel.add(textFieldTPTrainingFile);
+        
+        buttonTPTrain = new JButton("Start Training");
+
+        labelTPLearningRate = new JLabel("Learning Rate:");
+        trainingPanelLayout.putConstraint(SpringLayout.WEST, labelTPLearningRate, 0, SpringLayout.WEST, labelTPTrainingFile);
+        trainingPanelLayout.putConstraint(SpringLayout.NORTH, labelTPLearningRate, 10, SpringLayout.SOUTH, labelTPTrainingFile);
+        trainingPanel.add(labelTPLearningRate);
+
+        textFieldTPLearningRate = new JTextField();
+        trainingPanelLayout.putConstraint(SpringLayout.WEST, textFieldTPLearningRate, 0, SpringLayout.WEST, textFieldTPTrainingFile);
+        trainingPanelLayout.putConstraint(SpringLayout.EAST, textFieldTPLearningRate, -10, SpringLayout.WEST, buttonTPTrain);
+        trainingPanelLayout.putConstraint(SpringLayout.VERTICAL_CENTER, textFieldTPLearningRate, 0, SpringLayout.VERTICAL_CENTER, labelTPLearningRate);
+        trainingPanel.add(textFieldTPLearningRate);
+        
+        labelTPMomentumFactor = new JLabel("Momentum Factor:");
+        trainingPanelLayout.putConstraint(SpringLayout.WEST, labelTPMomentumFactor, 0, SpringLayout.WEST, labelTPTrainingFile);
+        trainingPanelLayout.putConstraint(SpringLayout.NORTH, labelTPMomentumFactor, 10, SpringLayout.SOUTH, labelTPLearningRate);
+        trainingPanel.add(labelTPMomentumFactor);
+
+        textFieldTPMomentumFactor = new JTextField();
+        trainingPanelLayout.putConstraint(SpringLayout.WEST, textFieldTPMomentumFactor, 0, SpringLayout.WEST, textFieldTPTrainingFile);
+        trainingPanelLayout.putConstraint(SpringLayout.EAST, textFieldTPMomentumFactor, -10, SpringLayout.WEST, buttonTPTrain);
+        trainingPanelLayout.putConstraint(SpringLayout.VERTICAL_CENTER, textFieldTPMomentumFactor, 0, SpringLayout.VERTICAL_CENTER, labelTPMomentumFactor);
+        trainingPanel.add(textFieldTPMomentumFactor);
+        
+        labelTPErrorThreshold = new JLabel("Error Threshold:");
+        trainingPanelLayout.putConstraint(SpringLayout.WEST, labelTPErrorThreshold, 0, SpringLayout.WEST, labelTPTrainingFile);
+        trainingPanelLayout.putConstraint(SpringLayout.NORTH, labelTPErrorThreshold, 10, SpringLayout.SOUTH, labelTPMomentumFactor);
+        trainingPanel.add(labelTPErrorThreshold);
+
+        textFieldTPErrorThreshold = new JTextField();
+        trainingPanelLayout.putConstraint(SpringLayout.WEST, textFieldTPErrorThreshold, 0, SpringLayout.WEST, textFieldTPTrainingFile);
+        trainingPanelLayout.putConstraint(SpringLayout.EAST, textFieldTPErrorThreshold, -10, SpringLayout.WEST, buttonTPTrain);
+        trainingPanelLayout.putConstraint(SpringLayout.VERTICAL_CENTER, textFieldTPErrorThreshold, 0, SpringLayout.VERTICAL_CENTER, labelTPErrorThreshold);
+        trainingPanel.add(textFieldTPErrorThreshold);
+
+        trainingPanelLayout.putConstraint(SpringLayout.EAST, buttonTPTrain, -10, SpringLayout.EAST, trainingPanel);
+        trainingPanelLayout.putConstraint(SpringLayout.NORTH, buttonTPTrain, -10, SpringLayout.SOUTH, labelTPLearningRate);
+        trainingPanelLayout.putConstraint(SpringLayout.SOUTH, buttonTPTrain, 10, SpringLayout.NORTH, labelTPErrorThreshold);
+        trainingPanel.add(buttonTPTrain);
+        buttonTPTrain.addMouseListener(new MouseListener() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                try {
+                    if (ann == null) {
+                        labelStatus.setText("No ANN currently active.");
+                        return;
+                    }
+                    if (textFieldTPTrainingFile.getText().equals("")) {
+                        labelStatus.setText("No training file selected.");
+                        return;
+                    }
+                    if (textFieldTPLearningRate.getText().equals("")) {
+                        labelStatus.setText("Learning rate is missing.");
+                        return;
+                    }
+                    if (textFieldTPMomentumFactor.getText().equals("")) {
+                        labelStatus.setText("Momentum factor is missing.");
+                        return;
+                    }
+                    if (textFieldTPErrorThreshold.getText().equals("")) {
+                        labelStatus.setText("Error threshold is missing.");
+                        return;
+                    }
+                    int i, j;
+                    int len = ann.InputSize() + ann.OutputSize();
+                    int ipLen = ann.InputSize();
+                    int opLen = len - ipLen;
+                    double[][] input;
+                    double[] temp;
+                    int[][] output;
+                    ArrayList list = new ArrayList();
+                    for (String line : Files.readAllLines(Paths.get(textFieldTPTrainingFile.getText()))) {
+                        list.add(StringToDoubleArray(line, len));
+                    }
+                    input = new double[list.size()][];
+                    output = new int[list.size()][];
+                    for (i = 0; i < list.size(); i++) {
+                        input[i] = new double[ipLen];
+                        output[i] = new int[opLen];
+                        temp = (double[]) list.get(i);
+                        for (j = 0; j < ipLen; j++)
+                            input[i][j] = temp[j];
+                        for (j = 0; j < opLen; j++)
+                            output[i][j] = (int) temp[ipLen + j];
+                    }
+                    labelStatus.setText("Training now...");
+                    ann.train(input, output, Double.parseDouble(textFieldTPLearningRate.getText()), Double.parseDouble(textFieldTPMomentumFactor.getText()), Double.parseDouble(textFieldTPErrorThreshold.getText()));
+                    labelStatus.setText("Training successful.");
+                } catch (ArrayIndexOutOfBoundsException | IOException ex) {
+                    labelStatus.setText("Invalid training file.");
+                }
+            }
+            @Override
+            public void mousePressed(MouseEvent e) {}
+            @Override
+            public void mouseReleased(MouseEvent e) {}
+            @Override
+            public void mouseEntered(MouseEvent e) {}
+            @Override
+            public void mouseExited(MouseEvent e) {}
+        });
+
+        defaultPanel.add(trainingPanel);
     }
 
     /** Converts a space separated list of numbers to an integer array and returns the array.
@@ -94,464 +582,14 @@ public class MainUI extends JFrame {
         return null;
     }
 
-    /** This method saves the currently loaded ANN.
-     * 
-     */
-    private void SaveANN() {
-        JFileChooser fileChooser = new JFileChooser();
-        if (fileChooser.showSaveDialog(panelMain) == JFileChooser.APPROVE_OPTION) {
-            try {
-                ann.Save(fileChooser.getSelectedFile().getPath());
-                labelStatus.setText("ANN Saved");
-            } catch (IOException ex) {
-                Logger.getLogger(MainUI.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        }
-    }
-
-    /** This method loads an ANN from file.
-     * 
-     */
-    private void LoadANN() {
-        JFileChooser fileChooser = new JFileChooser();
-        if (fileChooser.showOpenDialog(panelTrain) == JFileChooser.APPROVE_OPTION) {
-            try {
-                if (ann == null)
-                    ann = new ANN();
-                ann.Load(fileChooser.getSelectedFile().getPath());
-                labelStatus.setText("ANN loaded.");
-            } catch (IOException | ClassNotFoundException ex) {
-                Logger.getLogger(MainUI.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        }
-    }
-
     /** This method encapsulates the select file operation using a file selection dialog box.
      * 
      * @return The name of the selected file, including its path.
      */
     private String SelectFile() {
         JFileChooser fileChooser = new JFileChooser();
-        if (fileChooser.showOpenDialog(panelTrain) == JFileChooser.APPROVE_OPTION)
+        if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION)
             return fileChooser.getSelectedFile().getPath();
         return "";
-    }
-
-    /**This method initializes all the UI controls and the associated events.
-     * 
-     */
-    private void InitUI() {
-        this.setTitle("ANN Creator & Trainer");
-        //<editor-fold defaultstate="collapsed" desc="Main panel controls initialization">
-        //Main panel controls initialization
-        panelMain = new JPanel();
-        layoutMain = new SpringLayout();
-        panelMain.setLayout(layoutMain);
-        this.add(panelMain);
-
-        buttonCreateANNPanel = new JButton("ANN Creation Panel");
-        layoutMain.putConstraint(SpringLayout.WEST, buttonCreateANNPanel, 5, SpringLayout.WEST, panelMain);
-        layoutMain.putConstraint(SpringLayout.NORTH, buttonCreateANNPanel, 5, SpringLayout.NORTH, panelMain);
-        panelMain.add(buttonCreateANNPanel);
-
-        buttonTrainANNPanel = new JButton("ANN Training Panel");
-        layoutMain.putConstraint(SpringLayout.WEST, buttonTrainANNPanel, 2, SpringLayout.EAST, buttonCreateANNPanel);
-        layoutMain.putConstraint(SpringLayout.NORTH, buttonTrainANNPanel, 5, SpringLayout.NORTH, panelMain);
-        panelMain.add(buttonTrainANNPanel);
-
-        buttonOperateANNPanel = new JButton("ANN Operation Panel");
-        layoutMain.putConstraint(SpringLayout.WEST, buttonOperateANNPanel, 2, SpringLayout.EAST, buttonTrainANNPanel);
-        layoutMain.putConstraint(SpringLayout.NORTH, buttonOperateANNPanel, 5, SpringLayout.NORTH, panelMain);
-        panelMain.add(buttonOperateANNPanel);
-
-        labelStatus = new JLabel("");
-        layoutMain.putConstraint(SpringLayout.WEST, labelStatus, 10, SpringLayout.WEST, panelMain);
-        layoutMain.putConstraint(SpringLayout.NORTH, labelStatus, -20, SpringLayout.SOUTH, panelMain);
-        panelMain.add(labelStatus);
-        //</editor-fold>
-
-        //<editor-fold defaultstate="collapsed" desc="Event listeners for main panel controls">
-        buttonCreateANNPanel.addMouseListener(new MouseListener() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                panelTrain.setVisible(false);
-                panelOperation.setVisible(false);
-                panelCreate.setVisible(true);
-                labelStatus.setText("");
-            }
-            @Override
-            public void mousePressed(MouseEvent e) {}
-            @Override
-            public void mouseReleased(MouseEvent e) {}
-            @Override
-            public void mouseEntered(MouseEvent e) {}
-            @Override
-            public void mouseExited(MouseEvent e) {}
-        });
-        buttonTrainANNPanel.addMouseListener(new MouseListener() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                panelOperation.setVisible(false);
-                panelCreate.setVisible(false);
-                panelTrain.setVisible(true);
-                labelStatus.setText("");
-            }
-            @Override
-            public void mousePressed(MouseEvent e) {}
-            @Override
-            public void mouseReleased(MouseEvent e) {}
-            @Override
-            public void mouseEntered(MouseEvent e) {}
-            @Override
-            public void mouseExited(MouseEvent e) {}
-        });
-        buttonOperateANNPanel.addMouseListener(new MouseListener() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                panelCreate.setVisible(false);
-                panelTrain.setVisible(false);
-                panelOperation.setVisible(true);
-                labelStatus.setText("");
-            }
-            @Override
-            public void mousePressed(MouseEvent e) {}
-            @Override
-            public void mouseReleased(MouseEvent e) {}
-            @Override
-            public void mouseEntered(MouseEvent e) {}
-            @Override
-            public void mouseExited(MouseEvent e) {}
-        });
-        //</editor-fold>
-
-        //<editor-fold defaultstate="collapsed" desc="Creation panel controls initialization">
-        //Creation panel controls initialization
-        panelCreate = new JPanel();
-        layoutCreatePanel = new SpringLayout();
-        panelCreate.setLayout(layoutCreatePanel);
-        layoutMain.putConstraint(SpringLayout.EAST, panelCreate, 0, SpringLayout.EAST, panelMain);
-        layoutMain.putConstraint(SpringLayout.WEST, panelCreate, 0, SpringLayout.WEST, panelMain);
-        layoutMain.putConstraint(SpringLayout.NORTH, panelCreate, 40, SpringLayout.NORTH, panelMain);
-        layoutMain.putConstraint(SpringLayout.SOUTH, panelCreate, -10, SpringLayout.NORTH, labelStatus);
-        panelMain.add(panelCreate);
-
-        labelANNDescription = new JLabel("Enter number of nodes in layers:");
-        layoutCreatePanel.putConstraint(SpringLayout.WEST, labelANNDescription, 10, SpringLayout.WEST, panelCreate);
-        layoutCreatePanel.putConstraint(SpringLayout.NORTH, labelANNDescription, 10, SpringLayout.NORTH, panelCreate);
-        panelCreate.add(labelANNDescription);
-
-        textFieldANNDescription = new JTextField();
-        layoutCreatePanel.putConstraint(SpringLayout.EAST, textFieldANNDescription, -10, SpringLayout.EAST, panelCreate);
-        layoutCreatePanel.putConstraint(SpringLayout.WEST, textFieldANNDescription, 10, SpringLayout.EAST, labelANNDescription);
-        layoutCreatePanel.putConstraint(SpringLayout.NORTH, textFieldANNDescription, -2, SpringLayout.NORTH, labelANNDescription);
-        panelCreate.add(textFieldANNDescription);
-
-        buttonCreateANN = new JButton("Create ANN");
-        layoutCreatePanel.putConstraint(SpringLayout.WEST, buttonCreateANN, 10, SpringLayout.WEST, panelCreate);
-        layoutCreatePanel.putConstraint(SpringLayout.NORTH, buttonCreateANN, 20, SpringLayout.SOUTH, labelANNDescription);
-        panelCreate.add(buttonCreateANN);
-
-        buttonSaveANNFromCreate = new JButton("Save ANN");
-        layoutCreatePanel.putConstraint(SpringLayout.WEST, buttonSaveANNFromCreate, 10, SpringLayout.EAST, buttonCreateANN);
-        layoutCreatePanel.putConstraint(SpringLayout.NORTH, buttonSaveANNFromCreate, 0, SpringLayout.NORTH, buttonCreateANN);
-        panelCreate.add(buttonSaveANNFromCreate);
-        //</editor-fold>
-
-        //<editor-fold defaultstate="collapsed" desc="Event listeners for creation panel controls">
-        buttonCreateANN.addMouseListener(new MouseListener() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                try {
-                    int[] nodes = StringToIntArray(textFieldANNDescription.getText());
-                    for (int i = nodes.length - 1; i >= 0; i--)
-                        if (nodes[i] == 0) {
-                            labelStatus.setText("Incorrect number of nodes. Please check input.");
-                            return;
-                        }
-                    ann = new ANN(nodes, 0.75);
-                    labelStatus.setText("ANN created and loaded.");
-                }
-                catch (NumberFormatException ex) {
-                    labelStatus.setText("Illegal number format found. Please check input.");
-                }
-            }
-            @Override
-            public void mousePressed(MouseEvent e) {}
-            @Override
-            public void mouseReleased(MouseEvent e) {}
-            @Override
-            public void mouseEntered(MouseEvent e) {}
-            @Override
-            public void mouseExited(MouseEvent e) {}
-        });
-        buttonSaveANNFromCreate.addMouseListener(new MouseListener() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                if (ann == null) {
-                    labelStatus.setText("Please create an ANN first.");
-                    return;
-                }
-                SaveANN();
-            }
-            @Override
-            public void mousePressed(MouseEvent e) {}
-            @Override
-            public void mouseReleased(MouseEvent e) {}
-            @Override
-            public void mouseEntered(MouseEvent e) {}
-            @Override
-            public void mouseExited(MouseEvent e) {}
-        });
-        //</editor-fold>
-
-        //<editor-fold defaultstate="collapsed" desc="Training panel controls initialization">
-        //Training panel controls initialization
-        panelTrain = new JPanel();
-        layoutTrainPanel = new SpringLayout();
-        panelTrain.setLayout(layoutTrainPanel);
-        layoutMain.putConstraint(SpringLayout.EAST, panelTrain, 0, SpringLayout.EAST, panelMain);
-        layoutMain.putConstraint(SpringLayout.WEST, panelTrain, 0, SpringLayout.WEST, panelMain);
-        layoutMain.putConstraint(SpringLayout.NORTH, panelTrain, 40, SpringLayout.NORTH, panelMain);
-        layoutMain.putConstraint(SpringLayout.SOUTH, panelTrain, -10, SpringLayout.SOUTH, labelStatus);
-        panelMain.add(panelTrain);
-
-        buttonLoadANNTrain = new JButton("Load ANN");
-        layoutTrainPanel.putConstraint(SpringLayout.WEST, buttonLoadANNTrain, 10, SpringLayout.WEST, panelTrain);
-        layoutTrainPanel.putConstraint(SpringLayout.NORTH, buttonLoadANNTrain, 10, SpringLayout.NORTH, panelTrain);
-        panelTrain.add(buttonLoadANNTrain);
-
-        labelSelectTrainingFile = new JLabel("Enter training file path:");
-        layoutTrainPanel.putConstraint(SpringLayout.WEST, labelSelectTrainingFile, 10, SpringLayout.WEST, panelTrain);
-        layoutTrainPanel.putConstraint(SpringLayout.NORTH, labelSelectTrainingFile, 10, SpringLayout.SOUTH, buttonLoadANNTrain);
-        panelTrain.add(labelSelectTrainingFile);
-
-        buttonSelectTrainingFile = new JButton("Select File");
-        layoutTrainPanel.putConstraint(SpringLayout.EAST, buttonSelectTrainingFile, -10, SpringLayout.EAST, panelTrain);
-        layoutTrainPanel.putConstraint(SpringLayout.NORTH, buttonSelectTrainingFile, -4, SpringLayout.NORTH, labelSelectTrainingFile);
-        panelTrain.add(buttonSelectTrainingFile);
-
-        textFieldSelectTrainingFile = new JTextField();
-        layoutTrainPanel.putConstraint(SpringLayout.WEST, textFieldSelectTrainingFile, 10, SpringLayout.EAST, labelSelectTrainingFile);
-        layoutTrainPanel.putConstraint(SpringLayout.EAST, textFieldSelectTrainingFile, -10, SpringLayout.WEST, buttonSelectTrainingFile);
-        layoutTrainPanel.putConstraint(SpringLayout.NORTH, textFieldSelectTrainingFile, 2, SpringLayout.NORTH, buttonSelectTrainingFile);
-        panelTrain.add(textFieldSelectTrainingFile);
-
-        buttonTrainANN = new JButton("Train ANN");
-        layoutTrainPanel.putConstraint(SpringLayout.WEST, buttonTrainANN, 10, SpringLayout.WEST, panelTrain);
-        layoutTrainPanel.putConstraint(SpringLayout.NORTH, buttonTrainANN, 20, SpringLayout.SOUTH, labelSelectTrainingFile);
-        panelTrain.add(buttonTrainANN);
-
-        buttonSaveANNFromTrain = new JButton("Save ANN");
-        layoutTrainPanel.putConstraint(SpringLayout.WEST, buttonSaveANNFromTrain, 10, SpringLayout.EAST, buttonTrainANN);
-        layoutTrainPanel.putConstraint(SpringLayout.NORTH, buttonSaveANNFromTrain, 0, SpringLayout.NORTH, buttonTrainANN);
-        panelTrain.add(buttonSaveANNFromTrain);
-
-        panelTrain.setVisible(false);
-        //</editor-fold>
-
-        //<editor-fold defaultstate="collapsed" desc="Event listeners for training panel controls">
-        buttonLoadANNTrain.addMouseListener(new MouseListener() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                LoadANN();
-            }
-            @Override
-            public void mousePressed(MouseEvent e) {}
-            @Override
-            public void mouseReleased(MouseEvent e) {}
-            @Override
-            public void mouseEntered(MouseEvent e) {}
-            @Override
-            public void mouseExited(MouseEvent e) {}
-        });
-        buttonSelectTrainingFile.addMouseListener(new MouseListener() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                textFieldSelectTrainingFile.setText(SelectFile());
-            }
-            @Override
-            public void mousePressed(MouseEvent e) {}
-            @Override
-            public void mouseReleased(MouseEvent e) {}
-            @Override
-            public void mouseEntered(MouseEvent e) {}
-            @Override
-            public void mouseExited(MouseEvent e) {}
-        });
-        buttonTrainANN.addMouseListener(new MouseListener() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                try {
-                    int i, j;
-                    int len = ann.InputSize() + ann.OutputSize();
-                    int ipLen = ann.InputSize();
-                    int opLen = len - ipLen;
-                    double[][] input;
-                    double[] temp;
-                    int[][] output;
-                    labelStatus.setText("Training now...");
-                    ArrayList list = new ArrayList();
-                    for (String line : Files.readAllLines(Paths.get(textFieldSelectTrainingFile.getText()))) {
-                        list.add(StringToDoubleArray(line, len));
-                    }
-                    input = new double[list.size()][];
-                    output = new int[list.size()][];
-                    for (i = 0; i < list.size(); i++) {
-                        input[i] = new double[ipLen];
-                        output[i] = new int[opLen];
-                        temp = (double[]) list.get(i);
-                        for (j = 0; j < ipLen; j++)
-                            input[i][j] = temp[j];
-                        for (j = 0; j < opLen; j++)
-                            output[i][j] = (int) temp[ipLen + j];
-                        
-                    }
-                    ann.train(input, output, 0.1, 0.8, 0.001);
-                    labelStatus.setText("Training successful.");
-                } catch (IOException ex) {
-                    Logger.getLogger(MainUI.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
-            @Override
-            public void mousePressed(MouseEvent e) {}
-            @Override
-            public void mouseReleased(MouseEvent e) {}
-            @Override
-            public void mouseEntered(MouseEvent e) {}
-            @Override
-            public void mouseExited(MouseEvent e) {}
-        });
-        //</editor-fold>
-
-        //<editor-fold defaultstate="collapsed" desc="Operation panel controls initilization">
-        //Operation panel controls initilization
-        panelOperation = new JPanel();
-        layoutOperationPanel = new SpringLayout();
-        panelOperation.setLayout(layoutOperationPanel);
-        layoutMain.putConstraint(SpringLayout.EAST, panelOperation, 0, SpringLayout.EAST, panelMain);
-        layoutMain.putConstraint(SpringLayout.WEST, panelOperation, 0, SpringLayout.WEST, panelMain);
-        layoutMain.putConstraint(SpringLayout.NORTH, panelOperation, 40, SpringLayout.NORTH, panelMain);
-        layoutMain.putConstraint(SpringLayout.SOUTH, panelOperation, -10, SpringLayout.SOUTH, labelStatus);
-        panelMain.add(panelOperation);
-
-        buttonLoadANNOperation = new JButton("Load ANN");
-        layoutOperationPanel.putConstraint(SpringLayout.WEST, buttonLoadANNOperation, 10, SpringLayout.WEST, panelOperation);
-        layoutOperationPanel.putConstraint(SpringLayout.NORTH, buttonLoadANNOperation, 10, SpringLayout.NORTH, panelOperation);
-        panelOperation.add(buttonLoadANNOperation);
-
-        labelInputFile = new JLabel("Enter input file path:");
-        layoutOperationPanel.putConstraint(SpringLayout.WEST, labelInputFile, 10, SpringLayout.WEST, panelOperation);
-        layoutOperationPanel.putConstraint(SpringLayout.NORTH, labelInputFile, 10, SpringLayout.SOUTH, buttonLoadANNOperation);
-        panelOperation.add(labelInputFile);
-
-        buttonSelectInputFile = new JButton("Select File");
-        layoutOperationPanel.putConstraint(SpringLayout.EAST, buttonSelectInputFile, -10, SpringLayout.EAST, panelOperation);
-        layoutOperationPanel.putConstraint(SpringLayout.NORTH, buttonSelectInputFile, -4, SpringLayout.NORTH, labelInputFile);
-        panelOperation.add(buttonSelectInputFile);
-
-        textFieldInputFile = new JTextField();
-        layoutOperationPanel.putConstraint(SpringLayout.WEST, textFieldInputFile, 10, SpringLayout.EAST, labelInputFile);
-        layoutOperationPanel.putConstraint(SpringLayout.EAST, textFieldInputFile, -10, SpringLayout.WEST, buttonSelectInputFile);
-        layoutOperationPanel.putConstraint(SpringLayout.NORTH, textFieldInputFile, 2, SpringLayout.NORTH, buttonSelectInputFile);
-        panelOperation.add(textFieldInputFile);
-
-        labelOutputFile = new JLabel("Enter output file path:");
-        layoutOperationPanel.putConstraint(SpringLayout.WEST, labelOutputFile, 10, SpringLayout.WEST, panelOperation);
-        layoutOperationPanel.putConstraint(SpringLayout.NORTH, labelOutputFile, 20, SpringLayout.SOUTH, labelInputFile);
-        panelOperation.add(labelOutputFile);
-
-        buttonSelectOutputFile = new JButton("Select File");
-        layoutOperationPanel.putConstraint(SpringLayout.EAST, buttonSelectOutputFile, -10, SpringLayout.EAST, panelOperation);
-        layoutOperationPanel.putConstraint(SpringLayout.NORTH, buttonSelectOutputFile, -4, SpringLayout.NORTH, labelOutputFile);
-        panelOperation.add(buttonSelectOutputFile);
-
-        textFieldOutputFile = new JTextField();
-        layoutOperationPanel.putConstraint(SpringLayout.WEST, textFieldOutputFile, 10, SpringLayout.EAST, labelOutputFile);
-        layoutOperationPanel.putConstraint(SpringLayout.EAST, textFieldOutputFile, -10, SpringLayout.WEST, buttonSelectOutputFile);
-        layoutOperationPanel.putConstraint(SpringLayout.NORTH, textFieldOutputFile, 2, SpringLayout.NORTH, buttonSelectOutputFile);
-        panelOperation.add(textFieldOutputFile);
-
-        buttonGenerateOutput = new JButton("Generate Output");
-        layoutOperationPanel.putConstraint(SpringLayout.WEST, buttonGenerateOutput, 10, SpringLayout.WEST, panelOperation);
-        layoutOperationPanel.putConstraint(SpringLayout.NORTH, buttonGenerateOutput, 20, SpringLayout.SOUTH, labelOutputFile);
-        panelOperation.add(buttonGenerateOutput);
-
-        panelOperation.setVisible(false);
-        //</editor-fold>
-
-        //<editor-fold defaultstate="collapsed" desc="Event listeners for operation panel controls">
-        buttonLoadANNOperation.addMouseListener(new MouseListener() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                LoadANN();
-            }
-            @Override
-            public void mousePressed(MouseEvent e) {}
-            @Override
-            public void mouseReleased(MouseEvent e) {}
-            @Override
-            public void mouseEntered(MouseEvent e) {}
-            @Override
-            public void mouseExited(MouseEvent e) {}
-        });
-        buttonSelectInputFile.addMouseListener(new MouseListener() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                textFieldInputFile.setText(SelectFile());
-            }
-            @Override
-            public void mousePressed(MouseEvent e) {}
-            @Override
-            public void mouseReleased(MouseEvent e) {}
-            @Override
-            public void mouseEntered(MouseEvent e) {}
-            @Override
-            public void mouseExited(MouseEvent e) {}
-        });
-        buttonSelectOutputFile.addMouseListener(new MouseListener() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                textFieldOutputFile.setText(SelectFile());
-            }
-            @Override
-            public void mousePressed(MouseEvent e) {}
-            @Override
-            public void mouseReleased(MouseEvent e) {}
-            @Override
-            public void mouseEntered(MouseEvent e) {}
-            @Override
-            public void mouseExited(MouseEvent e) {}
-        });
-        buttonGenerateOutput.addMouseListener(new MouseListener() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                try {
-                    int len = ann.InputSize();
-                    BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(new File(textFieldOutputFile.getText()))));
-                    for (String line : Files.readAllLines(Paths.get(textFieldInputFile.getText()))) {
-                        ann.FeedInput(StringToDoubleArray(line, len));
-                        bw.write(Arrays.toString(ann.GetOutput()));
-                        bw.newLine();
-                    }
-                    bw.close();
-                    labelStatus.setText("Output generated.");
-                } catch (IOException ex) {
-                    Logger.getLogger(MainUI.class.getName()).log(Level.SEVERE, null, ex);
-                } catch (ArrayIndexOutOfBoundsException ex) {
-                    labelStatus.setText("Invalid input file.");
-                }
-            }
-            @Override
-            public void mousePressed(MouseEvent e) {}
-            @Override
-            public void mouseReleased(MouseEvent e) {}
-            @Override
-            public void mouseEntered(MouseEvent e) {}
-            @Override
-            public void mouseExited(MouseEvent e) {}
-        });
-        //</editor-fold>
-
-        this.pack();
     }
 }
